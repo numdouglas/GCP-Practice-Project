@@ -1,0 +1,65 @@
+gcloud beta compute --project=qwiklabs-gcp-03-9833a28acad2 
+instances create bloghost 
+--zone=us-central1-a 
+--machine-type=e2-medium  
+--image=debian-9-stretch-v20200902 
+--image-project=debian-cloud --boot-disk-size=10GB 
+--boot-disk-type=pd-standard --boot-disk-device-name=bloghost 
+
+gcloud compute --project=qwiklabs-gcp-03-9833a28acad2 firewall-rules create default-allow-http --direction=INGRESS --priority=1000 --network=default --action=ALLOW --rules=tcp:80 --source-ranges=0.0.0.0/0 --target-tags=http-server
+
+
+apt-get update
+apt-get install apache2 php php-mysql -y
+service apache2 restart
+
+export LOCATION=US
+export DEVSHELL_PROJECT_ID=qwiklabs-gcp-03-9833a28acad2
+gsutil mb -l $LOCATION gs://$DEVSHELL_PROJECT_ID
+gsutil cp gs://cloud-training/gcpfci/my-excellent-blog.png my-excellent-blog.png
+gsutil cp my-excellent-blog.png gs://$DEVSHELL_PROJECT_ID/my-excellent-blog.png
+gsutil acl ch -u allUsers:R gs://$DEVSHELL_PROJECT_ID/my-excellent-blog.png
+
+gcloud compute instances create blog-db 
+    --image-project windows-sql-cloud 
+	--root-password root
+	--region us-central1
+    --machine-type db-n1-standard-1 
+    --boot-disk-size 10GB
+    --boot-disk-type SSD
+	
+gcloud group add-iam-policy-binding resource 
+    --member=blogdbuser --role=role-id	
+	
+gcloud compute networks create "web front end"  default="regional" --range="35.192.208.2/32"
+
+cd /var/www/html
+echo  index.php "
+<html>
+<head><title>Welcome to my excellent blog</title></head>
+<body>
+<h1>Welcome to my excellent blog</h1>
+<?php
+ $dbserver = 35.192.208.2;
+$dbuser = "blogdbuser";
+$dbpassword = "DBPASSWORD";
+// In a production blog, we would not store the MySQL
+// password in the document root. Instead, we would store it in a
+// configuration file elsewhere on the web server VM instance.
+
+$conn = new mysqli($dbserver, $dbuser, $dbpassword);
+
+if (mysqli_connect_error()) {
+        echo ("Database connection failed: " . mysqli_connect_error());
+} else {
+        echo ("Database connection succeeded.");
+}
+?>
+</body></html>"
+
+sudo service apache2 restart
+
+35.192.208.2/index.php
+
+cd /var/www/html
+sudo service apache2 restart
